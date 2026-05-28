@@ -43,14 +43,15 @@ class AuthRepositoryImpl(
     }
 
     private suspend fun ResponseException.apiMessage(): String {
-        return runCatching { response.body<ApiError>().message }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?: when (response.status.value) {
-                401 -> "Неверная почта или пароль"
-                409 -> "Пользователь с такой почтой уже существует"
-                else -> "Ошибка сервера"
-            }
+        return when (response.status.value) {
+            400, 422 -> "Проверьте почту и пароль"
+            401 -> "Неверная почта или пароль"
+            409 -> "Пользователь с такой почтой уже существует"
+            else -> runCatching { response.body<ApiError>().message }
+                .getOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?: "Ошибка сервера"
+        }
     }
 
     private fun AuthResponse.toDomain(): AuthSession {

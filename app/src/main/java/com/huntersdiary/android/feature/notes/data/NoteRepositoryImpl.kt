@@ -84,14 +84,15 @@ class NoteRepositoryImpl(
     }
 
     private suspend fun ResponseException.apiMessage(): String {
-        return runCatching { response.body<NoteApiError>().message }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?: when (response.status.value) {
-                401 -> "Войдите в аккаунт заново"
-                404 -> "Заметка не найдена"
-                else -> "Ошибка сервера"
-            }
+        return when (response.status.value) {
+            400, 422 -> "Проверьте поля заметки"
+            401 -> "Войдите в аккаунт заново"
+            404 -> "Заметка не найдена"
+            else -> runCatching { response.body<NoteApiError>().message }
+                .getOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?: "Ошибка сервера"
+        }
     }
 }
 

@@ -118,7 +118,7 @@ private fun NotesContent(
                     color = MaterialTheme.colorScheme.error,
                 )
                 TextButton(onClick = onRetry) {
-                    Text("Повторить")
+                    Text("Обновить")
                 }
             }
         }

@@ -27,13 +27,10 @@ class DataStoreSearchHistoryRepository(
         val normalizedQuery = query.trim()
         if (normalizedQuery.isBlank()) return
 
-        val currentHistory = observeHistory(scope).first()
-        val updatedHistory = buildList {
-            add(normalizedQuery)
-            addAll(currentHistory.filterNot { item ->
-                item.equals(normalizedQuery, ignoreCase = true)
-            })
-        }.take(MAX_HISTORY_ITEMS)
+        val updatedHistory = SearchHistoryPolicy.addItem(
+            history = observeHistory(scope).first(),
+            query = normalizedQuery,
+        )
 
         context.searchHistoryDataStore.edit { preferences ->
             preferences[historyKey(scope)] = json.encodeToString(updatedHistory)
@@ -49,12 +46,8 @@ class DataStoreSearchHistoryRepository(
     private fun decodeHistory(value: String): List<String> {
         return runCatching { json.decodeFromString<List<String>>(value) }
             .getOrDefault(emptyList())
-            .take(MAX_HISTORY_ITEMS)
+            .let(SearchHistoryPolicy::normalize)
     }
 
     private fun historyKey(scope: SearchHistoryScope) = stringPreferencesKey("history_${scope.key}")
-
-    private companion object {
-        const val MAX_HISTORY_ITEMS = 10
-    }
 }

@@ -37,13 +37,13 @@ class RuleRepositoryImpl(
     }
 
     private suspend fun ResponseException.apiMessage(): String {
-        return runCatching { response.body<RuleApiError>().message }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?: when (response.status.value) {
-                404 -> "Правило не найдено"
-                else -> "Ошибка сервера"
-            }
+        return when (response.status.value) {
+            404 -> "Правило не найдено"
+            else -> runCatching { response.body<RuleApiError>().message }
+                .getOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?: "Ошибка сервера"
+        }
     }
 }
 
