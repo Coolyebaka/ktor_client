@@ -78,9 +78,12 @@ fun AppNavGraph(
                 onSearch = viewModel::search,
                 onClearQuery = viewModel::clearQuery,
                 onRetry = viewModel::retry,
+                onHistoryClick = viewModel::onHistoryClick,
+                onClearHistory = viewModel::clearHistory,
                 onRefresh = viewModel::refreshCurrent,
                 onAddClick = { navController.navigate(AppRoute.AddNote.route) },
                 onNoteClick = { noteId ->
+                    viewModel.onSearchResultClick()
                     navController.navigate(AppRoute.NoteDetails.createRoute(noteId))
                 },
             )

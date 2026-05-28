@@ -1,6 +1,8 @@
 package com.huntersdiary.android.core.di
 
 import com.huntersdiary.android.core.network.provideHttpClient
+import com.huntersdiary.android.core.storage.DataStoreSearchHistoryRepository
+import com.huntersdiary.android.core.storage.SearchHistoryRepository
 import com.huntersdiary.android.core.storage.TokenStorage
 import com.huntersdiary.android.feature.auth.data.AuthApi
 import com.huntersdiary.android.feature.auth.data.AuthRepositoryImpl
@@ -32,6 +34,7 @@ val appModule = module {
         }
     }
     single { TokenStorage(androidContext()) }
+    single<SearchHistoryRepository> { DataStoreSearchHistoryRepository(androidContext(), get()) }
     single { provideHttpClient(get(), get()) }
     single { AuthApi(get()) }
     single<AuthRepository> { AuthRepositoryImpl(get(), get()) }
@@ -46,7 +49,7 @@ val appModule = module {
     factory { CreateNoteUseCase(get()) }
     factory { UpdateNoteUseCase(get()) }
     factory { DeleteNoteUseCase(get()) }
-    viewModel { NotesListViewModel(get()) }
+    viewModel { NotesListViewModel(get(), get()) }
     viewModel { (noteId: String) ->
         AddEditNoteViewModel(
             noteId = noteId.takeIf { it.isNotBlank() },

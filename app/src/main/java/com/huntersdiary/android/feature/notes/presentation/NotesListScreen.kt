@@ -9,24 +9,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.huntersdiary.android.core.ui.search.SearchComponent
+import com.huntersdiary.android.core.ui.search.SearchComponentState
 import com.huntersdiary.android.feature.notes.domain.Note
 
 @Composable
@@ -36,6 +33,8 @@ fun NotesListScreen(
     onSearch: () -> Unit,
     onClearQuery: () -> Unit,
     onRetry: () -> Unit,
+    onHistoryClick: (String) -> Unit,
+    onClearHistory: () -> Unit,
     onRefresh: () -> Unit,
     onAddClick: () -> Unit,
     onNoteClick: (String) -> Unit,
@@ -64,41 +63,32 @@ fun NotesListScreen(
                     Text("Добавить")
                 }
             }
-            Row(
+            SearchComponent(
+                state = SearchComponentState(
+                    query = state.query,
+                    history = state.searchHistory,
+                    isLoading = state.isLoading,
+                    isEmpty = state.notes.isEmpty(),
+                    errorMessage = state.errorMessage,
+                ),
+                hint = "Поиск",
+                emptyText = if (state.lastQuery.isNullOrBlank()) {
+                    "Заметок пока нет"
+                } else {
+                    "Ничего не найдено"
+                },
+                onQueryChange = onQueryChange,
+                onSearch = onSearch,
+                onClearQuery = onClearQuery,
+                onRetry = onRetry,
+                onHistoryClick = onHistoryClick,
+                onClearHistory = onClearHistory,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedTextField(
-                    value = state.query,
-                    onValueChange = onQueryChange,
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Поиск") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { onSearch() }),
-                )
-                Button(onClick = onSearch, enabled = !state.isLoading) {
-                    Text("Найти")
-                }
-            }
-            if (state.query.isNotBlank()) {
-                TextButton(onClick = onClearQuery, enabled = !state.isLoading) {
-                    Text("Очистить поиск")
-                }
-            }
-            when {
-                state.isLoading && state.notes.isEmpty() -> LoadingContent()
-                state.errorMessage != null && state.notes.isEmpty() -> ErrorContent(
-                    message = state.errorMessage,
-                    onRetry = onRetry,
-                )
-                state.notes.isEmpty() -> EmptyContent()
-                else -> NotesContent(
+                NotesContent(
                     notes = state.notes,
-                    isLoading = state.isLoading,
                     errorMessage = state.errorMessage,
                     onNoteClick = onNoteClick,
                     onRetry = onRetry,
@@ -109,73 +99,13 @@ fun NotesListScreen(
 }
 
 @Composable
-private fun LoadingContent() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun ErrorContent(
-    message: String,
-    onRetry: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = message,
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        Button(
-            onClick = onRetry,
-            modifier = Modifier.padding(top = 12.dp),
-        ) {
-            Text("Повторить")
-        }
-    }
-}
-
-@Composable
-private fun EmptyContent() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = "Заметок пока нет",
-            style = MaterialTheme.typography.bodyLarge,
-        )
-    }
-}
-
-@Composable
 private fun NotesContent(
     notes: List<Note>,
-    isLoading: Boolean,
     errorMessage: String?,
     onNoteClick: (String) -> Unit,
     onRetry: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        if (isLoading) {
-            Text(
-                text = "Обновление...",
-                modifier = Modifier.padding(vertical = 8.dp),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
         if (errorMessage != null) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
