@@ -1,27 +1,30 @@
 package com.huntersdiary.android.core.ui.navigation
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.navigation.NavType
 import com.huntersdiary.android.feature.auth.presentation.AuthViewModel
 import com.huntersdiary.android.feature.auth.presentation.LoginScreen
 import com.huntersdiary.android.feature.auth.presentation.RegisterScreen
+import com.huntersdiary.android.feature.notes.presentation.AddEditNoteScreen
+import com.huntersdiary.android.feature.notes.presentation.AddEditNoteViewModel
+import com.huntersdiary.android.feature.notes.presentation.NoteDetailsScreen
+import com.huntersdiary.android.feature.notes.presentation.NoteDetailsViewModel
+import com.huntersdiary.android.feature.notes.presentation.NotesListScreen
+import com.huntersdiary.android.feature.notes.presentation.NotesListViewModel
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun AppNavGraph(
@@ -37,8 +40,8 @@ fun AppNavGraph(
     val navController = rememberNavController()
 
     LaunchedEffect(state.isAuthenticated) {
-        if (state.isAuthenticated && navController.currentDestination?.route != AppRoute.Main.route) {
-            navController.navigate(AppRoute.Main.route) {
+        if (state.isAuthenticated && navController.currentDestination?.route != AppRoute.NotesList.route) {
+            navController.navigate(AppRoute.NotesList.route) {
                 popUpTo(navController.graph.startDestinationId) {
                     inclusive = true
                 }
@@ -49,7 +52,7 @@ fun AppNavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = if (state.isAuthenticated) AppRoute.Main.route else AppRoute.Login.route,
+        startDestination = if (state.isAuthenticated) AppRoute.NotesList.route else AppRoute.Login.route,
     ) {
         composable(AppRoute.Login.route) {
             LoginScreen(
@@ -65,8 +68,95 @@ fun AppNavGraph(
                 onLoginClick = { navController.popBackStack() },
             )
         }
-        composable(AppRoute.Main.route) {
-            MainPlaceholderScreen()
+        composable(AppRoute.NotesList.route) {
+            val viewModel: NotesListViewModel = koinViewModel()
+            val notesState by viewModel.uiState.collectAsStateWithLifecycle()
+
+            NotesListScreen(
+                state = notesState,
+                onQueryChange = viewModel::onQueryChange,
+                onSearch = viewModel::search,
+                onClearQuery = viewModel::clearQuery,
+                onRetry = viewModel::retry,
+                onRefresh = viewModel::refreshCurrent,
+                onAddClick = { navController.navigate(AppRoute.AddNote.route) },
+                onNoteClick = { noteId ->
+                    navController.navigate(AppRoute.NoteDetails.createRoute(noteId))
+                },
+            )
+        }
+        composable(AppRoute.AddNote.route) {
+            val viewModel: AddEditNoteViewModel = koinViewModel {
+                parametersOf("")
+            }
+            val noteState by viewModel.uiState.collectAsStateWithLifecycle()
+
+            AddEditNoteScreen(
+                state = noteState,
+                onDateTimeChange = viewModel::onDateTimeChange,
+                onLocationChange = viewModel::onLocationChange,
+                onTargetChange = viewModel::onTargetChange,
+                onTextChange = viewModel::onTextChange,
+                onSave = viewModel::save,
+                onRetry = viewModel::retryLoad,
+                onBackClick = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() },
+                onSaveHandled = viewModel::consumeSaveCompleted,
+            )
+        }
+        composable(
+            route = AppRoute.EditNote.route,
+            arguments = listOf(
+                navArgument(AppRoute.EditNote.ARG_NOTE_ID) {
+                    type = NavType.StringType
+                },
+            ),
+        ) { backStackEntry ->
+            val noteId = backStackEntry.arguments?.getString(AppRoute.EditNote.ARG_NOTE_ID).orEmpty()
+            val viewModel: AddEditNoteViewModel = koinViewModel {
+                parametersOf(noteId)
+            }
+            val noteState by viewModel.uiState.collectAsStateWithLifecycle()
+
+            AddEditNoteScreen(
+                state = noteState,
+                onDateTimeChange = viewModel::onDateTimeChange,
+                onLocationChange = viewModel::onLocationChange,
+                onTargetChange = viewModel::onTargetChange,
+                onTextChange = viewModel::onTextChange,
+                onSave = viewModel::save,
+                onRetry = viewModel::retryLoad,
+                onBackClick = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() },
+                onSaveHandled = viewModel::consumeSaveCompleted,
+            )
+        }
+        composable(
+            route = AppRoute.NoteDetails.route,
+            arguments = listOf(
+                navArgument(AppRoute.NoteDetails.ARG_NOTE_ID) {
+                    type = NavType.StringType
+                },
+            ),
+        ) { backStackEntry ->
+            val noteId = backStackEntry.arguments?.getString(AppRoute.NoteDetails.ARG_NOTE_ID).orEmpty()
+            val viewModel: NoteDetailsViewModel = koinViewModel {
+                parametersOf(noteId)
+            }
+            val noteState by viewModel.uiState.collectAsStateWithLifecycle()
+
+            NoteDetailsScreen(
+                state = noteState,
+                onBackClick = { navController.popBackStack() },
+                onEditClick = { id ->
+                    navController.navigate(AppRoute.EditNote.createRoute(id))
+                },
+                onDeleteClick = viewModel::deleteNote,
+                onRetry = viewModel::retry,
+                onRefresh = viewModel::refresh,
+                onDeleted = { navController.popBackStack() },
+                onDeleteHandled = viewModel::consumeDeleteCompleted,
+            )
         }
     }
 }
@@ -78,29 +168,5 @@ private fun LoadingScreen() {
         contentAlignment = Alignment.Center,
     ) {
         CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun MainPlaceholderScreen() {
-    Scaffold { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = "Дневник охотника",
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Text(
-                text = "Главный экран",
-                modifier = Modifier.padding(top = 8.dp),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
     }
 }
