@@ -2,8 +2,11 @@ package com.huntersdiary.android.core.di
 
 import com.huntersdiary.android.core.network.provideHttpClient
 import com.huntersdiary.android.core.storage.DataStoreSearchHistoryRepository
+import com.huntersdiary.android.core.storage.DataStoreThemeSettingsRepository
 import com.huntersdiary.android.core.storage.SearchHistoryRepository
+import com.huntersdiary.android.core.storage.ThemeSettingsRepository
 import com.huntersdiary.android.core.storage.TokenStorage
+import com.huntersdiary.android.core.ui.theme.ThemeViewModel
 import com.huntersdiary.android.feature.auth.data.AuthApi
 import com.huntersdiary.android.feature.auth.data.AuthRepositoryImpl
 import com.huntersdiary.android.feature.auth.domain.AuthRepository
@@ -21,6 +24,13 @@ import com.huntersdiary.android.feature.notes.domain.UpdateNoteUseCase
 import com.huntersdiary.android.feature.notes.presentation.AddEditNoteViewModel
 import com.huntersdiary.android.feature.notes.presentation.NoteDetailsViewModel
 import com.huntersdiary.android.feature.notes.presentation.NotesListViewModel
+import com.huntersdiary.android.feature.rules.data.RuleRepositoryImpl
+import com.huntersdiary.android.feature.rules.data.RulesApi
+import com.huntersdiary.android.feature.rules.domain.GetRuleByIdUseCase
+import com.huntersdiary.android.feature.rules.domain.GetRulesUseCase
+import com.huntersdiary.android.feature.rules.domain.RuleRepository
+import com.huntersdiary.android.feature.rules.presentation.RuleDetailsViewModel
+import com.huntersdiary.android.feature.rules.presentation.RulesListViewModel
 import kotlinx.serialization.json.Json
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -35,7 +45,9 @@ val appModule = module {
     }
     single { TokenStorage(androidContext()) }
     single<SearchHistoryRepository> { DataStoreSearchHistoryRepository(androidContext(), get()) }
+    single<ThemeSettingsRepository> { DataStoreThemeSettingsRepository(androidContext()) }
     single { provideHttpClient(get(), get()) }
+    viewModel { ThemeViewModel(get()) }
     single { AuthApi(get()) }
     single<AuthRepository> { AuthRepositoryImpl(get(), get()) }
     factory { LoginUseCase(get()) }
@@ -63,6 +75,18 @@ val appModule = module {
             noteId = noteId,
             getNoteByIdUseCase = get(),
             deleteNoteUseCase = get(),
+        )
+    }
+
+    single { RulesApi(get()) }
+    single<RuleRepository> { RuleRepositoryImpl(get()) }
+    factory { GetRulesUseCase(get()) }
+    factory { GetRuleByIdUseCase(get()) }
+    viewModel { RulesListViewModel(get(), get()) }
+    viewModel { (ruleId: String) ->
+        RuleDetailsViewModel(
+            ruleId = ruleId,
+            getRuleByIdUseCase = get(),
         )
     }
 }

@@ -12,8 +12,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.huntersdiary.android.core.ui.main.MainScreen
 import com.huntersdiary.android.feature.auth.presentation.AuthViewModel
 import com.huntersdiary.android.feature.auth.presentation.LoginScreen
 import com.huntersdiary.android.feature.auth.presentation.RegisterScreen
@@ -23,12 +24,18 @@ import com.huntersdiary.android.feature.notes.presentation.NoteDetailsScreen
 import com.huntersdiary.android.feature.notes.presentation.NoteDetailsViewModel
 import com.huntersdiary.android.feature.notes.presentation.NotesListScreen
 import com.huntersdiary.android.feature.notes.presentation.NotesListViewModel
+import com.huntersdiary.android.feature.rules.presentation.RuleDetailsScreen
+import com.huntersdiary.android.feature.rules.presentation.RuleDetailsViewModel
+import com.huntersdiary.android.feature.rules.presentation.RulesListScreen
+import com.huntersdiary.android.feature.rules.presentation.RulesListViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 @Composable
 fun AppNavGraph(
     authViewModel: AuthViewModel,
+    isDarkTheme: Boolean,
+    onDarkThemeChange: (Boolean) -> Unit,
 ) {
     val state by authViewModel.uiState.collectAsStateWithLifecycle()
 
@@ -40,8 +47,8 @@ fun AppNavGraph(
     val navController = rememberNavController()
 
     LaunchedEffect(state.isAuthenticated) {
-        if (state.isAuthenticated && navController.currentDestination?.route != AppRoute.NotesList.route) {
-            navController.navigate(AppRoute.NotesList.route) {
+        if (state.isAuthenticated && navController.currentDestination?.route != AppRoute.Main.route) {
+            navController.navigate(AppRoute.Main.route) {
                 popUpTo(navController.graph.startDestinationId) {
                     inclusive = true
                 }
@@ -52,7 +59,7 @@ fun AppNavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = if (state.isAuthenticated) AppRoute.NotesList.route else AppRoute.Login.route,
+        startDestination = if (state.isAuthenticated) AppRoute.Main.route else AppRoute.Login.route,
     ) {
         composable(AppRoute.Login.route) {
             LoginScreen(
@@ -68,23 +75,47 @@ fun AppNavGraph(
                 onLoginClick = { navController.popBackStack() },
             )
         }
-        composable(AppRoute.NotesList.route) {
-            val viewModel: NotesListViewModel = koinViewModel()
-            val notesState by viewModel.uiState.collectAsStateWithLifecycle()
+        composable(AppRoute.Main.route) {
+            val notesViewModel: NotesListViewModel = koinViewModel()
+            val notesState by notesViewModel.uiState.collectAsStateWithLifecycle()
+            val rulesViewModel: RulesListViewModel = koinViewModel()
+            val rulesState by rulesViewModel.uiState.collectAsStateWithLifecycle()
 
-            NotesListScreen(
-                state = notesState,
-                onQueryChange = viewModel::onQueryChange,
-                onSearch = viewModel::search,
-                onClearQuery = viewModel::clearQuery,
-                onRetry = viewModel::retry,
-                onHistoryClick = viewModel::onHistoryClick,
-                onClearHistory = viewModel::clearHistory,
-                onRefresh = viewModel::refreshCurrent,
-                onAddClick = { navController.navigate(AppRoute.AddNote.route) },
-                onNoteClick = { noteId ->
-                    viewModel.onSearchResultClick()
-                    navController.navigate(AppRoute.NoteDetails.createRoute(noteId))
+            MainScreen(
+                isDarkTheme = isDarkTheme,
+                onDarkThemeChange = onDarkThemeChange,
+                notesContent = {
+                    NotesListScreen(
+                        state = notesState,
+                        onQueryChange = notesViewModel::onQueryChange,
+                        onSearch = notesViewModel::search,
+                        onClearQuery = notesViewModel::clearQuery,
+                        onRetry = notesViewModel::retry,
+                        onHistoryClick = notesViewModel::onHistoryClick,
+                        onClearHistory = notesViewModel::clearHistory,
+                        onRefresh = notesViewModel::refreshCurrent,
+                        onAddClick = { navController.navigate(AppRoute.AddNote.route) },
+                        onNoteClick = { noteId ->
+                            notesViewModel.onSearchResultClick()
+                            navController.navigate(AppRoute.NoteDetails.createRoute(noteId))
+                        },
+                    )
+                },
+                rulesContent = {
+                    RulesListScreen(
+                        state = rulesState,
+                        onQueryChange = rulesViewModel::onQueryChange,
+                        onSearch = rulesViewModel::search,
+                        onClearQuery = rulesViewModel::clearQuery,
+                        onRetry = rulesViewModel::retry,
+                        onHistoryClick = rulesViewModel::onHistoryClick,
+                        onClearHistory = rulesViewModel::clearHistory,
+                        onRefresh = rulesViewModel::refreshCurrent,
+                        onRuleClick = { ruleId ->
+                            rulesViewModel.onSearchResultClick()
+                            navController.navigate(AppRoute.RuleDetails.createRoute(ruleId))
+                        },
+                    )
                 },
             )
         }
@@ -159,6 +190,26 @@ fun AppNavGraph(
                 onRefresh = viewModel::refresh,
                 onDeleted = { navController.popBackStack() },
                 onDeleteHandled = viewModel::consumeDeleteCompleted,
+            )
+        }
+        composable(
+            route = AppRoute.RuleDetails.route,
+            arguments = listOf(
+                navArgument(AppRoute.RuleDetails.ARG_RULE_ID) {
+                    type = NavType.StringType
+                },
+            ),
+        ) { backStackEntry ->
+            val ruleId = backStackEntry.arguments?.getString(AppRoute.RuleDetails.ARG_RULE_ID).orEmpty()
+            val viewModel: RuleDetailsViewModel = koinViewModel {
+                parametersOf(ruleId)
+            }
+            val ruleState by viewModel.uiState.collectAsStateWithLifecycle()
+
+            RuleDetailsScreen(
+                state = ruleState,
+                onBackClick = { navController.popBackStack() },
+                onRetry = viewModel::retry,
             )
         }
     }
