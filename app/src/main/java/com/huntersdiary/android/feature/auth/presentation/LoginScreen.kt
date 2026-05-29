@@ -25,28 +25,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun LoginScreen(
     state: AuthUiState,
-    onLogin: (String, String) -> Unit,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onLogin: () -> Unit,
     onRegisterClick: () -> Unit,
 ) {
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-
     AuthScreenLayout(
         title = "Вход",
-        email = email,
-        password = password,
+        email = state.email,
+        password = state.password,
         errorMessage = state.errorMessage,
         isLoading = state.isLoading,
         primaryButtonText = "Войти",
         secondaryButtonText = "Зарегистрироваться",
-        onEmailChange = { email = it },
-        onPasswordChange = { password = it },
-        onPrimaryClick = { onLogin(email, password) },
+        onEmailChange = onEmailChange,
+        onPasswordChange = onPasswordChange,
+        onPrimaryClick = onLogin,
         onSecondaryClick = onRegisterClick,
     )
 }
@@ -54,23 +54,22 @@ fun LoginScreen(
 @Composable
 fun RegisterScreen(
     state: AuthUiState,
-    onRegister: (String, String) -> Unit,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onRegister: () -> Unit,
     onLoginClick: () -> Unit,
 ) {
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-
     AuthScreenLayout(
         title = "Регистрация",
-        email = email,
-        password = password,
+        email = state.email,
+        password = state.password,
         errorMessage = state.errorMessage,
         isLoading = state.isLoading,
         primaryButtonText = "Зарегистрироваться",
         secondaryButtonText = "Уже есть аккаунт",
-        onEmailChange = { email = it },
-        onPasswordChange = { password = it },
-        onPrimaryClick = { onRegister(email, password) },
+        onEmailChange = onEmailChange,
+        onPasswordChange = onPasswordChange,
+        onPrimaryClick = onRegister,
         onSecondaryClick = onLoginClick,
     )
 }
@@ -89,6 +88,8 @@ private fun AuthScreenLayout(
     onPrimaryClick: () -> Unit,
     onSecondaryClick: () -> Unit,
 ) {
+    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -124,8 +125,17 @@ private fun AuthScreenLayout(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Пароль") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (isPasswordVisible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                TextButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                    Text(if (isPasswordVisible) "Скрыть" else "Показать")
+                }
+            },
         )
         if (errorMessage != null) {
             Text(

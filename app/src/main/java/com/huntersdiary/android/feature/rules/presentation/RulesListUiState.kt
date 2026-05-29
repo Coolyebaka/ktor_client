@@ -7,6 +7,7 @@ data class RulesListUiState(
     val searchHistory: List<String> = emptyList(),
     val rules: List<HuntingRule> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
     val lastQuery: String? = null,
 )

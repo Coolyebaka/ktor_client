@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 class AuthViewModel(
     private val loginUseCase: LoginUseCase,
     private val registerUseCase: RegisterUseCase,
-    tokenStorage: TokenStorage,
+    private val tokenStorage: TokenStorage,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
@@ -40,8 +40,28 @@ class AuthViewModel(
         submit(email = email, password = password, action = registerUseCase::invoke)
     }
 
+    fun onEmailChange(email: String) {
+        _uiState.update { state -> state.copy(email = email, errorMessage = null) }
+    }
+
+    fun onPasswordChange(password: String) {
+        _uiState.update { state -> state.copy(password = password, errorMessage = null) }
+    }
+
     fun clearError() {
         _uiState.update { state -> state.copy(errorMessage = null) }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            tokenStorage.clearToken()
+            _uiState.update { state ->
+                state.copy(
+                    isAuthenticated = false,
+                    errorMessage = null,
+                )
+            }
+        }
     }
 
     private fun submit(

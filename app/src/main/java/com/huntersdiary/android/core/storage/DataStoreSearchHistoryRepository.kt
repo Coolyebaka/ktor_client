@@ -37,6 +37,22 @@ class DataStoreSearchHistoryRepository(
         }
     }
 
+    override suspend fun removeHistoryItem(scope: SearchHistoryScope, query: String) {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return
+
+        val updatedHistory = observeHistory(scope).first()
+            .filterNot { item -> item.equals(normalizedQuery, ignoreCase = true) }
+
+        context.searchHistoryDataStore.edit { preferences ->
+            if (updatedHistory.isEmpty()) {
+                preferences.remove(historyKey(scope))
+            } else {
+                preferences[historyKey(scope)] = json.encodeToString(updatedHistory)
+            }
+        }
+    }
+
     override suspend fun clearHistory(scope: SearchHistoryScope) {
         context.searchHistoryDataStore.edit { preferences ->
             preferences.remove(historyKey(scope))

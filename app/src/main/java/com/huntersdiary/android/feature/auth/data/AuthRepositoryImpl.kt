@@ -29,7 +29,7 @@ class AuthRepositoryImpl(
     ): Result<AuthSession> {
         return try {
             val response = block()
-            tokenStorage.saveToken(response.token)
+            tokenStorage.saveSession(token = response.token, userId = response.user.id)
             Result.success(response.toDomain())
         } catch (exception: ResponseException) {
             Result.failure(AuthRequestException(exception.apiMessage()))

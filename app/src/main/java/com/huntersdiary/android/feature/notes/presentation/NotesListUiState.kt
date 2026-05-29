@@ -7,6 +7,7 @@ data class NotesListUiState(
     val searchHistory: List<String> = emptyList(),
     val notes: List<Note> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
     val lastQuery: String? = null,
 )

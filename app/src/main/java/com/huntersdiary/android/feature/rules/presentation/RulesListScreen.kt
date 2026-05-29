@@ -15,8 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import com.huntersdiary.android.core.ui.search.SearchComponent
 import com.huntersdiary.android.core.ui.search.SearchComponentState
 import com.huntersdiary.android.feature.rules.domain.HuntingRule
@@ -29,18 +27,14 @@ fun RulesListScreen(
     onClearQuery: () -> Unit,
     onRetry: () -> Unit,
     onHistoryClick: (String) -> Unit,
+    onRemoveHistoryItem: (String) -> Unit,
     onClearHistory: () -> Unit,
-    onRefresh: () -> Unit,
     onRuleClick: (String) -> Unit,
 ) {
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        onRefresh()
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(start = 16.dp, top = 20.dp, end = 16.dp, bottom = 16.dp),
     ) {
         Text(
             text = "Справочник",
@@ -65,10 +59,11 @@ fun RulesListScreen(
             onClearQuery = onClearQuery,
             onRetry = onRetry,
             onHistoryClick = onHistoryClick,
+            onRemoveHistoryItem = onRemoveHistoryItem,
             onClearHistory = onClearHistory,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp),
+                .padding(top = 10.dp),
         ) {
             RulesContent(
                 rules = state.rules,

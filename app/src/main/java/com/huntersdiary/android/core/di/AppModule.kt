@@ -14,6 +14,7 @@ import com.huntersdiary.android.feature.auth.domain.LoginUseCase
 import com.huntersdiary.android.feature.auth.domain.RegisterUseCase
 import com.huntersdiary.android.feature.auth.presentation.AuthViewModel
 import com.huntersdiary.android.feature.notes.data.NoteRepositoryImpl
+import com.huntersdiary.android.feature.notes.data.LocalNoteStorage
 import com.huntersdiary.android.feature.notes.data.NotesApi
 import com.huntersdiary.android.feature.notes.domain.CreateNoteUseCase
 import com.huntersdiary.android.feature.notes.domain.DeleteNoteUseCase
@@ -25,6 +26,7 @@ import com.huntersdiary.android.feature.notes.presentation.AddEditNoteViewModel
 import com.huntersdiary.android.feature.notes.presentation.NoteDetailsViewModel
 import com.huntersdiary.android.feature.notes.presentation.NotesListViewModel
 import com.huntersdiary.android.feature.rules.data.RuleRepositoryImpl
+import com.huntersdiary.android.feature.rules.data.LocalRuleStorage
 import com.huntersdiary.android.feature.rules.data.RulesApi
 import com.huntersdiary.android.feature.rules.domain.GetRuleByIdUseCase
 import com.huntersdiary.android.feature.rules.domain.GetRulesUseCase
@@ -43,7 +45,7 @@ val appModule = module {
             explicitNulls = false
         }
     }
-    single { TokenStorage(androidContext()) }
+    single { TokenStorage(androidContext(), get()) }
     single<SearchHistoryRepository> { DataStoreSearchHistoryRepository(androidContext(), get()) }
     single<ThemeSettingsRepository> { DataStoreThemeSettingsRepository(androidContext()) }
     single { provideHttpClient(get(), get()) }
@@ -55,13 +57,14 @@ val appModule = module {
     viewModel { AuthViewModel(get(), get(), get()) }
 
     single { NotesApi(get()) }
-    single<NoteRepository> { NoteRepositoryImpl(get()) }
+    single { LocalNoteStorage(androidContext(), get(), get()) }
+    single<NoteRepository> { NoteRepositoryImpl(get(), get()) }
     factory { GetNotesUseCase(get()) }
     factory { GetNoteByIdUseCase(get()) }
     factory { CreateNoteUseCase(get()) }
     factory { UpdateNoteUseCase(get()) }
     factory { DeleteNoteUseCase(get()) }
-    viewModel { NotesListViewModel(get(), get()) }
+    viewModel { NotesListViewModel(get(), get(), get()) }
     viewModel { (noteId: String) ->
         AddEditNoteViewModel(
             noteId = noteId.takeIf { it.isNotBlank() },
@@ -79,7 +82,8 @@ val appModule = module {
     }
 
     single { RulesApi(get()) }
-    single<RuleRepository> { RuleRepositoryImpl(get()) }
+    single { LocalRuleStorage(androidContext(), get()) }
+    single<RuleRepository> { RuleRepositoryImpl(get(), get()) }
     factory { GetRulesUseCase(get()) }
     factory { GetRuleByIdUseCase(get()) }
     viewModel { RulesListViewModel(get(), get()) }

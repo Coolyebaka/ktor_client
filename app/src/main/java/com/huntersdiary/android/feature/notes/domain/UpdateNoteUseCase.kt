@@ -2,24 +2,27 @@
 
 package com.huntersdiary.android.feature.notes.domain
 
-import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 class UpdateNoteUseCase(
     private val repository: NoteRepository,
 ) {
     suspend operator fun invoke(
         id: String,
-        dateTime: Instant,
+        date: LocalDate?,
+        time: LocalTime?,
         location: String,
         target: String,
         text: String,
     ): Result<Note> {
         return repository.updateNote(
             id = id,
-            dateTime = dateTime,
-            location = location.trim(),
-            target = target.trim(),
-            text = text.trim(),
+            date = date,
+            time = time,
+            location = location.trim().takeIf { it.isNotBlank() },
+            target = target.trim().takeIf { it.isNotBlank() },
+            text = text.trim().takeIf { it.isNotBlank() },
         )
     }
 }

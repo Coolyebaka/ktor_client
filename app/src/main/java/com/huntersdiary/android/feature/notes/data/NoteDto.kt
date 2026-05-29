@@ -4,27 +4,34 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class CreateNoteRequest(
-    val dateTime: String,
-    val location: String,
-    val target: String,
-    val text: String,
+    val date: String? = null,
+    val time: String? = null,
+    val location: String? = null,
+    val target: String? = null,
+    val text: String? = null,
+    val createdAt: String,
+    val updatedAt: String,
 )
 
 @Serializable
 data class UpdateNoteRequest(
-    val dateTime: String,
-    val location: String,
-    val target: String,
-    val text: String,
+    val date: String? = null,
+    val time: String? = null,
+    val location: String? = null,
+    val target: String? = null,
+    val text: String? = null,
+    val createdAt: String,
+    val updatedAt: String,
 )
 
 @Serializable
 data class NoteResponse(
     val id: String,
-    val dateTime: String,
-    val location: String,
-    val target: String,
-    val text: String,
+    val date: String? = null,
+    val time: String? = null,
+    val location: String? = null,
+    val target: String? = null,
+    val text: String? = null,
     val createdAt: String,
     val updatedAt: String,
 )

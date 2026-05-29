@@ -1,17 +1,24 @@
 package com.huntersdiary.android.core.ui.search
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -19,12 +26,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 
 @Composable
 fun SearchComponent(
@@ -36,85 +51,118 @@ fun SearchComponent(
     onClearQuery: () -> Unit,
     onRetry: () -> Unit,
     onHistoryClick: (String) -> Unit,
+    onRemoveHistoryItem: (String) -> Unit,
     onClearHistory: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+    var isSearchFocused by rememberSaveable { mutableStateOf(false) }
+    val clearFocus = {
+        focusManager.clearFocus()
+        keyboardController?.hide()
+    }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = onQueryChange,
-                modifier = Modifier.weight(1f),
-                label = { Text(hint) },
-                placeholder = { Text(hint) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = {
-                        focusManager.clearFocus()
-                        keyboardController?.hide()
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .onFocusChanged { focusState ->
+                            isSearchFocused = focusState.isFocused
+                        },
+                    label = { Text(hint) },
+                    placeholder = { Text(hint) },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (state.query.isNotBlank()) {
+                            IconButton(
+                                onClick = {
+                                    onClearQuery()
+                                    clearFocus()
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Очистить поиск",
+                                )
+                            }
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            clearFocus()
+                            onSearch()
+                        },
+                    ),
+                )
+                Button(
+                    onClick = {
+                        clearFocus()
                         onSearch()
                     },
-                ),
-            )
-            Button(
-                onClick = {
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                    onSearch()
-                },
-                enabled = !state.isLoading,
-            ) {
-                Text("Найти")
+                    enabled = !state.isLoading,
+                ) {
+                    Text("Найти")
+                }
             }
-        }
-        if (state.query.isNotBlank()) {
-            TextButton(
-                onClick = {
-                    onClearQuery()
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                },
-                enabled = !state.isLoading,
-            ) {
-                Text("Очистить")
-            }
-        }
-        if (state.isLoading) {
-            LinearProgressIndicator(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
-            )
+                    .padding(top = 2.dp)
+                    .height(2.dp),
+            ) {
+                if (state.isLoading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
+                        clearFocus()
+                    },
+            ) {
+                when {
+                    state.errorMessage != null && state.isEmpty -> SearchErrorPlaceholder(
+                        message = state.errorMessage,
+                        onRetry = {
+                            clearFocus()
+                            onRetry()
+                        },
+                    )
+                    state.isEmpty && !state.isLoading -> SearchEmptyPlaceholder(text = emptyText)
+                    else -> content()
+                }
+            }
         }
-        SearchHistory(
-            history = state.history,
-            onHistoryClick = { query ->
-                focusManager.clearFocus()
-                keyboardController?.hide()
-                onHistoryClick(query)
-            },
-            onClearHistory = onClearHistory,
-        )
-        when {
-            state.errorMessage != null && state.isEmpty -> SearchErrorPlaceholder(
-                message = state.errorMessage,
-                onRetry = {
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                    onRetry()
+
+        if (isSearchFocused && state.history.isNotEmpty()) {
+            SearchHistory(
+                history = state.history,
+                onHistoryClick = { query ->
+                    clearFocus()
+                    onHistoryClick(query)
                 },
+                onRemoveHistoryItem = onRemoveHistoryItem,
+                onClearHistory = onClearHistory,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 60.dp, end = 92.dp)
+                    .zIndex(1f),
             )
-            state.isEmpty && !state.isLoading -> SearchEmptyPlaceholder(text = emptyText)
-            else -> content()
         }
     }
 }
@@ -123,50 +171,76 @@ fun SearchComponent(
 private fun SearchHistory(
     history: List<String>,
     onHistoryClick: (String) -> Unit,
+    onRemoveHistoryItem: (String) -> Unit,
     onClearHistory: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    if (history.isEmpty()) return
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 6.dp,
+        shadowElevation = 6.dp,
+        color = MaterialTheme.colorScheme.surface,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(
-                text = "История поиска",
-                style = MaterialTheme.typography.bodyMedium,
-            )
             TextButton(onClick = onClearHistory) {
-                Text("Очистить историю")
+                Text(
+                    text = "Очистить",
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall,
+                )
             }
-        }
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(history) { query ->
+            history.forEach { query ->
                 Surface(
                     modifier = Modifier.clickable { onHistoryClick(query) },
                     shape = MaterialTheme.shapes.small,
-                    tonalElevation = 2.dp,
+                    tonalElevation = 1.dp,
                     color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
-                    Text(
-                        text = query,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    Row(
+                        modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = query.toHistoryLabel(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        IconButton(
+                            onClick = { onRemoveHistoryItem(query) },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Удалить запрос из истории",
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+private fun String.toHistoryLabel(): String {
+    val trimmed = trim()
+    return if (trimmed.length <= HISTORY_LABEL_MAX_LENGTH) {
+        trimmed
+    } else {
+        trimmed.take(HISTORY_LABEL_MAX_LENGTH) + ".."
+    }
+}
+
+private const val HISTORY_LABEL_MAX_LENGTH = 25
 
 @Composable
 private fun SearchEmptyPlaceholder(text: String) {

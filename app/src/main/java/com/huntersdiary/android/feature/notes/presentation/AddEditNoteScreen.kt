@@ -22,25 +22,28 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun AddEditNoteScreen(
     state: AddEditNoteUiState,
-    onDateTimeChange: (String) -> Unit,
+    onDateChange: (String) -> Unit,
+    onTimeChange: (String) -> Unit,
     onLocationChange: (String) -> Unit,
     onTargetChange: (String) -> Unit,
     onTextChange: (String) -> Unit,
     onSave: () -> Unit,
     onRetry: () -> Unit,
     onBackClick: () -> Unit,
-    onSaved: () -> Unit,
+    onSaved: (String) -> Unit,
     onSaveHandled: () -> Unit,
 ) {
-    LaunchedEffect(state.saveCompleted) {
-        if (state.saveCompleted) {
+    LaunchedEffect(state.saveCompleted, state.savedNoteId) {
+        val savedNoteId = state.savedNoteId
+        if (state.saveCompleted && savedNoteId != null) {
             onSaveHandled()
-            onSaved()
+            onSaved(savedNoteId)
         }
     }
 
@@ -92,16 +95,31 @@ fun AddEditNoteScreen(
                     }
                 }
             }
-            OutlinedTextField(
-                value = state.dateTime,
-                onValueChange = onDateTimeChange,
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
-                label = { Text("Дата и время") },
-                singleLine = true,
-                supportingText = { Text("ISO-8601, например 2026-05-28T12:00:00Z") },
-            )
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedTextField(
+                    value = state.date,
+                    onValueChange = onDateChange,
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Дата") },
+                    singleLine = true,
+                    supportingText = { Text("ГГГГ-ММ-ДД") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+                OutlinedTextField(
+                    value = state.time,
+                    onValueChange = onTimeChange,
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Время") },
+                    singleLine = true,
+                    supportingText = { Text("ЧЧ:ММ") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+            }
             OutlinedTextField(
                 value = state.location,
                 onValueChange = onLocationChange,

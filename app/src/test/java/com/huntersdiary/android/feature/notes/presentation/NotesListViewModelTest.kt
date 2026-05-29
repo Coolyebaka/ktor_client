@@ -5,6 +5,7 @@ package com.huntersdiary.android.feature.notes.presentation
 import com.huntersdiary.android.MainDispatcherRule
 import com.huntersdiary.android.core.storage.SearchHistoryRepository
 import com.huntersdiary.android.core.storage.SearchHistoryScope
+import com.huntersdiary.android.feature.notes.domain.GetNoteByIdUseCase
 import com.huntersdiary.android.feature.notes.domain.GetNotesUseCase
 import com.huntersdiary.android.feature.notes.domain.Note
 import com.huntersdiary.android.feature.notes.domain.NoteRepository
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -32,6 +35,7 @@ class NotesListViewModelTest {
         )
         val viewModel = NotesListViewModel(
             getNotesUseCase = GetNotesUseCase(repository),
+            getNoteByIdUseCase = GetNoteByIdUseCase(repository),
             searchHistoryRepository = FakeSearchHistoryRepository(),
         )
 
@@ -46,8 +50,10 @@ class NotesListViewModelTest {
 
     @Test
     fun initialLoadHandlesEmptyResult() = runTest {
+        val repository = FakeNoteRepository(mutableListOf(Result.success(emptyList())))
         val viewModel = NotesListViewModel(
-            getNotesUseCase = GetNotesUseCase(FakeNoteRepository(mutableListOf(Result.success(emptyList())))),
+            getNotesUseCase = GetNotesUseCase(repository),
+            getNoteByIdUseCase = GetNoteByIdUseCase(repository),
             searchHistoryRepository = FakeSearchHistoryRepository(),
         )
 
@@ -58,10 +64,12 @@ class NotesListViewModelTest {
 
     @Test
     fun initialLoadHandlesError() = runTest {
+        val repository = FakeNoteRepository(mutableListOf(Result.failure(IllegalStateException("Ошибка поиска"))))
         val viewModel = NotesListViewModel(
             getNotesUseCase = GetNotesUseCase(
-                FakeNoteRepository(mutableListOf(Result.failure(IllegalStateException("Ошибка поиска")))),
+                repository,
             ),
+            getNoteByIdUseCase = GetNoteByIdUseCase(repository),
             searchHistoryRepository = FakeSearchHistoryRepository(),
         )
 
@@ -81,6 +89,7 @@ class NotesListViewModelTest {
         )
         val viewModel = NotesListViewModel(
             getNotesUseCase = GetNotesUseCase(repository),
+            getNoteByIdUseCase = GetNoteByIdUseCase(repository),
             searchHistoryRepository = FakeSearchHistoryRepository(),
         )
 
@@ -107,18 +116,20 @@ class NotesListViewModelTest {
         override suspend fun getNoteById(id: String): Result<Note> = error("Not used")
 
         override suspend fun createNote(
-            dateTime: Instant,
-            location: String,
-            target: String,
-            text: String,
+            date: LocalDate?,
+            time: LocalTime?,
+            location: String?,
+            target: String?,
+            text: String?,
         ): Result<Note> = error("Not used")
 
         override suspend fun updateNote(
             id: String,
-            dateTime: Instant,
-            location: String,
-            target: String,
-            text: String,
+            date: LocalDate?,
+            time: LocalTime?,
+            location: String?,
+            target: String?,
+            text: String?,
         ): Result<Note> = error("Not used")
 
         override suspend fun deleteNote(id: String): Result<Unit> = error("Not used")
@@ -133,6 +144,10 @@ class NotesListViewModelTest {
             history.value = listOf(query) + history.value
         }
 
+        override suspend fun removeHistoryItem(scope: SearchHistoryScope, query: String) {
+            history.value = history.value.filterNot { item -> item == query }
+        }
+
         override suspend fun clearHistory(scope: SearchHistoryScope) {
             history.value = emptyList()
         }
@@ -140,7 +155,8 @@ class NotesListViewModelTest {
 
     private fun sampleNote() = Note(
         id = "note-id",
-        dateTime = Instant.parse("2026-05-28T12:00:00Z"),
+        date = LocalDate.parse("2026-05-28"),
+        time = LocalTime.parse("12:00"),
         location = "Лес",
         target = "Утка",
         text = "Текст заметки",

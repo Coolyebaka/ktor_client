@@ -6,11 +6,7 @@ Base URL for local development:
 http://localhost:8080
 ```
 
-Android emulator base URL:
-
-```text
-http://10.0.2.2:8080
-```
+Keep this value as a client setting, for example `API_BASE_URL`. If backend `PORT` changes, update `API_BASE_URL`.
 
 ## Authorization
 
@@ -42,6 +38,8 @@ Common codes:
 - `INVALID_REQUEST_BODY`
 - `BAD_REQUEST`
 - `INTERNAL_ERROR`
+
+Invalid JSON body or invalid field type returns `400` with `INVALID_REQUEST_BODY` or `BAD_REQUEST`.
 
 ## Health
 
@@ -81,6 +79,7 @@ Response:
 ```
 
 Duplicate email returns `409 CONFLICT`.
+Invalid email returns `400 VALIDATION_ERROR`. Password must contain at least 6 characters.
 
 ### POST /auth/login
 
@@ -106,16 +105,31 @@ Response:
 ```
 
 Wrong email or password returns `401 UNAUTHORIZED`.
+Invalid email format returns `400 VALIDATION_ERROR`.
 
 ## Notes
 
 All `/notes` endpoints require `Authorization: Bearer <token>`.
 
-Date-time fields use ISO-8601 strings.
+User-selected note date and time are separate fields:
+
+- `date`: ISO date string, for example `"2026-05-28"`;
+- `time`: ISO time string, for example `"12:00:00"`.
+
+Both fields can be `null` when the client has no selected date or time. For create and update
+requests, `date` and `time` may also be omitted; the backend treats omitted fields as `null`.
+Do not send empty strings for date or time.
+
+`location`, `target`, and `text` are nullable user fields. If they are present, the backend trims
+them before saving. If they are omitted, the backend stores `null`.
+
+`createdAt` and `updatedAt` are required single ISO-8601 timestamp fields. The client sends both
+fields in create and update requests. If one of them is omitted or `null`, the backend returns
+`400 VALIDATION_ERROR` and does not save the note.
 
 ### GET /notes?query=
 
-Returns only notes owned by the authorized user. Optional `query` searches by `location`, `target`, `text`, and ISO string representation of `dateTime`.
+Returns only notes owned by the authorized user. Optional `query` searches by `location`, `target`, `text`, `date`, and `time` when they are present.
 
 Response:
 
@@ -123,7 +137,8 @@ Response:
 [
   {
     "id": "note-id",
-    "dateTime": "2026-05-28T12:00:00Z",
+    "date": "2026-05-28",
+    "time": "12:00:00",
     "location": "Northern forest",
     "target": "Boar",
     "text": "Saw fresh tracks near the river.",
@@ -133,16 +148,35 @@ Response:
 ]
 ```
 
+If the note has no selected date or time, `date` and `time` are `null`.
+
 ### POST /notes
 
 Request:
 
 ```json
 {
-  "dateTime": "2026-05-28T12:00:00Z",
+  "date": "2026-05-28",
+  "time": "12:00:00",
   "location": "Northern forest",
   "target": "Boar",
-  "text": "Saw fresh tracks near the river."
+  "text": "Saw fresh tracks near the river.",
+  "createdAt": "2026-05-28T13:00:00Z",
+  "updatedAt": "2026-05-28T13:00:00Z"
+}
+```
+
+Empty user fields request:
+
+```json
+{
+  "date": null,
+  "time": null,
+  "location": null,
+  "target": null,
+  "text": null,
+  "createdAt": "2026-05-28T13:00:00Z",
+  "updatedAt": "2026-05-28T13:00:00Z"
 }
 ```
 
@@ -151,7 +185,8 @@ Response `201 CREATED`:
 ```json
 {
   "id": "note-id",
-  "dateTime": "2026-05-28T12:00:00Z",
+  "date": "2026-05-28",
+  "time": "12:00:00",
   "location": "Northern forest",
   "target": "Boar",
   "text": "Saw fresh tracks near the river.",
@@ -159,6 +194,9 @@ Response `201 CREATED`:
   "updatedAt": "2026-05-28T13:00:00Z"
 }
 ```
+
+If the note has no selected date or time, `date` and `time` are `null`.
+If `location`, `target`, or `text` is empty, the corresponding field is `null`.
 
 ### GET /notes/{id}
 
@@ -169,7 +207,8 @@ Response:
 ```json
 {
   "id": "note-id",
-  "dateTime": "2026-05-28T12:00:00Z",
+  "date": "2026-05-28",
+  "time": "12:00:00",
   "location": "Northern forest",
   "target": "Boar",
   "text": "Saw fresh tracks near the river.",
@@ -186,19 +225,29 @@ Request:
 
 ```json
 {
-  "dateTime": "2026-05-29T09:30:00Z",
+  "date": "2026-05-29",
+  "time": "09:30:00",
   "location": "Eastern field",
   "target": "Duck",
-  "text": "Updated observation."
+  "text": "Updated observation.",
+  "createdAt": "2026-05-28T13:00:00Z",
+  "updatedAt": "2026-05-29T10:00:00Z"
 }
 ```
+
+Use `null` to clear nullable user fields. `PUT /notes/{id}` replaces all editable fields:
+`date`, `time`, `location`, `target`, `text`, `createdAt`, and `updatedAt`.
+If `date`, `time`, `location`, `target`, or `text` is omitted, that field is saved as `null`.
+If `createdAt` or `updatedAt` is omitted or `null`, the backend returns `400 VALIDATION_ERROR` and
+does not update the note.
 
 Response:
 
 ```json
 {
   "id": "note-id",
-  "dateTime": "2026-05-29T09:30:00Z",
+  "date": "2026-05-29",
+  "time": "09:30:00",
   "location": "Eastern field",
   "target": "Duck",
   "text": "Updated observation.",

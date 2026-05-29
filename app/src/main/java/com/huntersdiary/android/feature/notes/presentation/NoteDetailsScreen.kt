@@ -1,12 +1,16 @@
 package com.huntersdiary.android.feature.notes.presentation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -19,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -120,22 +125,47 @@ private fun NoteDetailsContent(
     onDeleteClick: () -> Unit,
 ) {
     Text(
-        text = note.target,
+        text = note.target.orEmpty(),
         modifier = Modifier.padding(top = 12.dp),
         style = MaterialTheme.typography.titleLarge,
     )
     Text(
-        text = note.location,
+        text = note.location.orEmpty(),
         modifier = Modifier.padding(top = 8.dp),
         style = MaterialTheme.typography.bodyLarge,
     )
+    if (!note.isSynced) {
+        Row(
+            modifier = Modifier.padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.tertiary),
+            )
+            Text(
+                text = if (note.pendingDelete) {
+                    "Удаление не синхронизировано"
+                } else {
+                    "Не синхронизировано"
+                },
+                modifier = Modifier.padding(start = 8.dp),
+                color = MaterialTheme.colorScheme.tertiary,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
     Text(
-        text = note.dateTime.toString(),
+        text = listOfNotNull(note.date?.toString(), note.time?.toString())
+            .joinToString(" ")
+            .ifBlank { "Дата и время не указаны" },
         modifier = Modifier.padding(top = 8.dp),
         style = MaterialTheme.typography.bodyMedium,
     )
     Text(
-        text = note.text,
+        text = note.text.orEmpty(),
         modifier = Modifier.padding(top = 20.dp),
         style = MaterialTheme.typography.bodyLarge,
     )

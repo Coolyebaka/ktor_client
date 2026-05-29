@@ -31,6 +31,9 @@ import com.huntersdiary.android.feature.rules.presentation.RulesListViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
+private const val NOTE_CHANGED_ID_KEY = "note_changed_id"
+private const val NOTE_CHANGED_DELETED_KEY = "note_changed_deleted"
+
 @Composable
 fun AppNavGraph(
     authViewModel: AuthViewModel,
@@ -45,10 +48,18 @@ fun AppNavGraph(
     }
 
     val navController = rememberNavController()
+    val signalNoteChanged: (String, Boolean) -> Unit = { noteId, isDeleted ->
+        runCatching {
+            val mainBackStackEntry = navController.getBackStackEntry(AppRoute.Main.route)
+            mainBackStackEntry.savedStateHandle[NOTE_CHANGED_ID_KEY] = noteId
+            mainBackStackEntry.savedStateHandle[NOTE_CHANGED_DELETED_KEY] = isDeleted
+        }
+    }
 
     LaunchedEffect(state.isAuthenticated) {
-        if (state.isAuthenticated && navController.currentDestination?.route != AppRoute.Main.route) {
-            navController.navigate(AppRoute.Main.route) {
+        val targetRoute = if (state.isAuthenticated) AppRoute.Main.route else AppRoute.Login.route
+        if (navController.currentDestination?.route != targetRoute) {
+            navController.navigate(targetRoute) {
                 popUpTo(navController.graph.startDestinationId) {
                     inclusive = true
                 }
@@ -64,26 +75,54 @@ fun AppNavGraph(
         composable(AppRoute.Login.route) {
             LoginScreen(
                 state = state,
-                onLogin = authViewModel::login,
+                onEmailChange = authViewModel::onEmailChange,
+                onPasswordChange = authViewModel::onPasswordChange,
+                onLogin = { authViewModel.login(state.email, state.password) },
                 onRegisterClick = { navController.navigate(AppRoute.Register.route) },
             )
         }
         composable(AppRoute.Register.route) {
             RegisterScreen(
                 state = state,
-                onRegister = authViewModel::register,
+                onEmailChange = authViewModel::onEmailChange,
+                onPasswordChange = authViewModel::onPasswordChange,
+                onRegister = { authViewModel.register(state.email, state.password) },
                 onLoginClick = { navController.popBackStack() },
             )
         }
-        composable(AppRoute.Main.route) {
+        composable(AppRoute.Main.route) { mainBackStackEntry ->
             val notesViewModel: NotesListViewModel = koinViewModel()
             val notesState by notesViewModel.uiState.collectAsStateWithLifecycle()
             val rulesViewModel: RulesListViewModel = koinViewModel()
             val rulesState by rulesViewModel.uiState.collectAsStateWithLifecycle()
+            val changedNoteId by mainBackStackEntry.savedStateHandle
+                .getStateFlow<String?>(NOTE_CHANGED_ID_KEY, null)
+                .collectAsStateWithLifecycle()
+            val changedNoteDeleted by mainBackStackEntry.savedStateHandle
+                .getStateFlow(NOTE_CHANGED_DELETED_KEY, false)
+                .collectAsStateWithLifecycle()
+
+            LaunchedEffect(changedNoteId, changedNoteDeleted) {
+                val noteId = changedNoteId
+                if (noteId != null) {
+                    notesViewModel.onNoteCrudChanged(
+                        noteId = noteId,
+                        isDeleted = changedNoteDeleted,
+                    )
+                    mainBackStackEntry.savedStateHandle[NOTE_CHANGED_ID_KEY] = null
+                    mainBackStackEntry.savedStateHandle[NOTE_CHANGED_DELETED_KEY] = false
+                }
+            }
 
             MainScreen(
                 isDarkTheme = isDarkTheme,
                 onDarkThemeChange = onDarkThemeChange,
+                onLogoutClick = authViewModel::logout,
+                isRefreshing = notesState.isRefreshing || rulesState.isRefreshing,
+                onRefreshAll = {
+                    notesViewModel.refreshCurrent()
+                    rulesViewModel.refreshCurrent()
+                },
                 notesContent = {
                     NotesListScreen(
                         state = notesState,
@@ -92,8 +131,8 @@ fun AppNavGraph(
                         onClearQuery = notesViewModel::clearQuery,
                         onRetry = notesViewModel::retry,
                         onHistoryClick = notesViewModel::onHistoryClick,
+                        onRemoveHistoryItem = notesViewModel::removeHistoryItem,
                         onClearHistory = notesViewModel::clearHistory,
-                        onRefresh = notesViewModel::refreshCurrent,
                         onAddClick = { navController.navigate(AppRoute.AddNote.route) },
                         onNoteClick = { noteId ->
                             notesViewModel.onSearchResultClick()
@@ -109,8 +148,8 @@ fun AppNavGraph(
                         onClearQuery = rulesViewModel::clearQuery,
                         onRetry = rulesViewModel::retry,
                         onHistoryClick = rulesViewModel::onHistoryClick,
+                        onRemoveHistoryItem = rulesViewModel::removeHistoryItem,
                         onClearHistory = rulesViewModel::clearHistory,
-                        onRefresh = rulesViewModel::refreshCurrent,
                         onRuleClick = { ruleId ->
                             rulesViewModel.onSearchResultClick()
                             navController.navigate(AppRoute.RuleDetails.createRoute(ruleId))
@@ -127,14 +166,18 @@ fun AppNavGraph(
 
             AddEditNoteScreen(
                 state = noteState,
-                onDateTimeChange = viewModel::onDateTimeChange,
+                onDateChange = viewModel::onDateChange,
+                onTimeChange = viewModel::onTimeChange,
                 onLocationChange = viewModel::onLocationChange,
                 onTargetChange = viewModel::onTargetChange,
                 onTextChange = viewModel::onTextChange,
                 onSave = viewModel::save,
                 onRetry = viewModel::retryLoad,
                 onBackClick = { navController.popBackStack() },
-                onSaved = { navController.popBackStack() },
+                onSaved = { noteId ->
+                    signalNoteChanged(noteId, false)
+                    navController.popBackStack(AppRoute.Main.route, false)
+                },
                 onSaveHandled = viewModel::consumeSaveCompleted,
             )
         }
@@ -154,14 +197,18 @@ fun AppNavGraph(
 
             AddEditNoteScreen(
                 state = noteState,
-                onDateTimeChange = viewModel::onDateTimeChange,
+                onDateChange = viewModel::onDateChange,
+                onTimeChange = viewModel::onTimeChange,
                 onLocationChange = viewModel::onLocationChange,
                 onTargetChange = viewModel::onTargetChange,
                 onTextChange = viewModel::onTextChange,
                 onSave = viewModel::save,
                 onRetry = viewModel::retryLoad,
                 onBackClick = { navController.popBackStack() },
-                onSaved = { navController.popBackStack() },
+                onSaved = { noteId ->
+                    signalNoteChanged(noteId, false)
+                    navController.popBackStack(AppRoute.Main.route, false)
+                },
                 onSaveHandled = viewModel::consumeSaveCompleted,
             )
         }
@@ -188,7 +235,10 @@ fun AppNavGraph(
                 onDeleteClick = viewModel::deleteNote,
                 onRetry = viewModel::retry,
                 onRefresh = viewModel::refresh,
-                onDeleted = { navController.popBackStack() },
+                onDeleted = {
+                    signalNoteChanged(noteId, true)
+                    navController.popBackStack()
+                },
                 onDeleteHandled = viewModel::consumeDeleteCompleted,
             )
         }

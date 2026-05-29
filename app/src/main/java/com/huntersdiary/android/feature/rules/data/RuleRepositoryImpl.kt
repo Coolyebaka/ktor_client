@@ -9,26 +9,39 @@ import kotlin.coroutines.cancellation.CancellationException
 
 class RuleRepositoryImpl(
     private val api: RulesApi,
+    private val localRuleStorage: LocalRuleStorage,
 ) : RuleRepository {
     override suspend fun getRules(query: String?): Result<List<HuntingRule>> {
-        return runRuleRequest {
-            api.getRules(query = query).map { response -> response.toDomain() }
+        return try {
+            val rules = api.getRules(query = query).map { response -> response.toDomain() }
+            if (query.isNullOrBlank()) {
+                localRuleStorage.replaceRules(rules)
+            } else {
+                rules.forEach { rule -> localRuleStorage.upsert(rule) }
+            }
+            Result.success(localRuleStorage.getRules(query))
+        } catch (exception: ResponseException) {
+            Result.failure(RuleRequestException(exception.apiMessage()))
+        } catch (exception: IOException) {
+            Result.success(localRuleStorage.getRules(query))
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Result.failure(RuleRequestException("Не удалось выполнить запрос"))
         }
     }
 
     override suspend fun getRuleById(id: String): Result<HuntingRule> {
-        return runRuleRequest {
-            api.getRuleById(id = id).toDomain()
-        }
-    }
-
-    private suspend fun <T> runRuleRequest(block: suspend () -> T): Result<T> {
         return try {
-            Result.success(block())
+            val rule = api.getRuleById(id = id).toDomain()
+            localRuleStorage.upsert(rule)
+            Result.success(rule)
         } catch (exception: ResponseException) {
             Result.failure(RuleRequestException(exception.apiMessage()))
         } catch (exception: IOException) {
-            Result.failure(RuleRequestException("Не удалось подключиться к серверу"))
+            localRuleStorage.getRuleById(id)
+                ?.let { rule -> Result.success(rule) }
+                ?: Result.failure(RuleRequestException("Не удалось подключиться к серверу"))
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {

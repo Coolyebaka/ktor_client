@@ -13,7 +13,7 @@ val localProperties = Properties().apply {
     }
 }
 
-val apiBaseUrl = localProperties.getProperty("API_BASE_URL") ?: "http://10.0.2.2:8080"
+val apiBaseUrl = localProperties.getProperty("API_BASE_URL") ?: "http://localhost:8080"
 
 android {
     namespace = "com.huntersdiary.android"
@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)

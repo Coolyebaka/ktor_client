@@ -1,16 +1,18 @@
 # Client Handoff
 
-Android emulator base URL:
+Keep backend URL as a client setting, for example:
 
-```text
-http://10.0.2.2:8080
+```kotlin
+const val API_BASE_URL = "http://localhost:8080"
 ```
 
-Physical device base URL should use the backend machine LAN address, for example:
+Backend base URL on the server computer:
 
 ```text
-http://192.168.1.10:8080
+http://localhost:8080
 ```
+
+If backend `PORT` changes, update `API_BASE_URL`.
 
 ## Auth Flow
 
@@ -24,55 +26,85 @@ Authorization: Bearer <token>
 
 Only `/notes` endpoints are protected right now. `/rules` endpoints are public read-only.
 
+Emails are normalized by the backend with trim/lowercase. Password must contain at least 6
+characters. Wrong email or password returns `401` with `ApiError`.
+
 ## DTOs For Android
 
-Use ISO-8601 strings for date-time values on the client.
+Use separate nullable fields for the user-selected note date and time:
+
+- `date: LocalDate?` serializes as `"2026-05-28"`;
+- `time: LocalTime?` serializes as `"12:00:00"`.
+
+With `kotlinx.serialization`, user-entered empty values can be sent as `null` or omitted in
+create/update requests. Do not send empty strings. `createdAt` and `updatedAt` are technical
+timestamps and must always be sent in create/update requests.
 
 ```kotlin
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class RegisterRequest(
     val email: String,
     val password: String,
 )
 
+@Serializable
 data class LoginRequest(
     val email: String,
     val password: String,
 )
 
+@Serializable
 data class AuthResponse(
     val token: String,
     val user: UserResponse,
 )
 
+@Serializable
 data class UserResponse(
     val id: String,
     val email: String,
 )
 
+@Serializable
 data class CreateNoteRequest(
-    val dateTime: String,
-    val location: String,
-    val target: String,
-    val text: String,
+    val date: LocalDate? = null,
+    val time: LocalTime? = null,
+    val location: String? = null,
+    val target: String? = null,
+    val text: String? = null,
+    val createdAt: Instant,
+    val updatedAt: Instant,
 )
 
+@Serializable
 data class UpdateNoteRequest(
-    val dateTime: String,
-    val location: String,
-    val target: String,
-    val text: String,
+    val date: LocalDate? = null,
+    val time: LocalTime? = null,
+    val location: String? = null,
+    val target: String? = null,
+    val text: String? = null,
+    val createdAt: Instant,
+    val updatedAt: Instant,
 )
 
+@Serializable
 data class NoteResponse(
     val id: String,
-    val dateTime: String,
-    val location: String,
-    val target: String,
-    val text: String,
-    val createdAt: String,
-    val updatedAt: String,
+    val date: LocalDate?,
+    val time: LocalTime?,
+    val location: String?,
+    val target: String?,
+    val text: String?,
+    val createdAt: Instant,
+    val updatedAt: Instant,
 )
 
+@Serializable
 data class RuleResponse(
     val id: String,
     val title: String,
@@ -82,6 +114,7 @@ data class RuleResponse(
     val text: String,
 )
 
+@Serializable
 data class ApiError(
     val code: String,
     val message: String,
@@ -95,10 +128,18 @@ All notes belong to the authorized user from JWT. The client must not send `user
 - `GET /notes?query=` returns only current user's notes.
 - `POST /notes` creates a note for current user.
 - `GET /notes/{id}` returns `404` if the note is absent or belongs to another user.
-- `PUT /notes/{id}` updates only current user's note.
+- `PUT /notes/{id}` replaces all editable fields of current user's note.
 - `DELETE /notes/{id}` deletes only current user's note.
 
-Search is simple text matching by `location`, `target`, `text`, and `dateTime` ISO string.
+All user-entered note fields are nullable: `date`, `time`, `location`, `target`, and `text`.
+The backend trims text fields and stores `null` if a text field is omitted or blank.
+The client must send `createdAt` and `updatedAt` as single `Instant` fields in create/update
+requests. If either one is omitted or `null`, the backend returns `400 VALIDATION_ERROR` and does
+not save the note.
+
+Search is simple text matching by `location`, `target`, `text`, `date`, and `time` when present.
+
+`createdAt` and `updatedAt` stay single timestamp fields; they are not split into date/time.
 
 ## Rules
 

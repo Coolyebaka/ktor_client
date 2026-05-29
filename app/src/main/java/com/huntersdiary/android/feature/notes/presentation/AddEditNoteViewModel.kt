@@ -12,7 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class AddEditNoteViewModel(
     private val noteId: String?,
@@ -22,7 +26,8 @@ class AddEditNoteViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         AddEditNoteUiState(
-            dateTime = "",
+            date = currentDateText(),
+            time = currentTimeText(),
             isEditMode = noteId != null,
         ),
     )
@@ -34,8 +39,12 @@ class AddEditNoteViewModel(
         }
     }
 
-    fun onDateTimeChange(value: String) {
-        _uiState.update { state -> state.copy(dateTime = value) }
+    fun onDateChange(value: String) {
+        _uiState.update { state -> state.copy(date = value) }
+    }
+
+    fun onTimeChange(value: String) {
+        _uiState.update { state -> state.copy(time = value) }
     }
 
     fun onLocationChange(value: String) {
@@ -52,14 +61,9 @@ class AddEditNoteViewModel(
 
     fun save() {
         val current = uiState.value
-        val dateTime = parseDateTime(current.dateTime) ?: return
-
-        if (current.location.isBlank() || current.target.isBlank() || current.text.isBlank()) {
-            _uiState.update { state ->
-                state.copy(errorMessage = "Заполните все поля заметки")
-            }
-            return
-        }
+        val noteDateTimeResult = parseDateAndTime(current.date, current.time)
+        if (noteDateTimeResult.isFailure) return
+        val noteDateTime = noteDateTimeResult.getOrThrow()
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -68,7 +72,8 @@ class AddEditNoteViewModel(
 
             val result = if (noteId == null) {
                 createNoteUseCase(
-                    dateTime = dateTime,
+                    date = noteDateTime.date,
+                    time = noteDateTime.time,
                     location = current.location,
                     target = current.target,
                     text = current.text,
@@ -76,7 +81,8 @@ class AddEditNoteViewModel(
             } else {
                 updateNoteUseCase(
                     id = noteId,
-                    dateTime = dateTime,
+                    date = noteDateTime.date,
+                    time = noteDateTime.time,
                     location = current.location,
                     target = current.target,
                     text = current.text,
@@ -90,6 +96,7 @@ class AddEditNoteViewModel(
                             isSaving = false,
                             errorMessage = null,
                             saveCompleted = true,
+                            savedNoteId = it.id,
                         )
                     },
                     onFailure = { error ->
@@ -105,7 +112,7 @@ class AddEditNoteViewModel(
     }
 
     fun consumeSaveCompleted() {
-        _uiState.update { state -> state.copy(saveCompleted = false) }
+        _uiState.update { state -> state.copy(saveCompleted = false, savedNoteId = null) }
     }
 
     private fun loadNote(id: String) {
@@ -120,10 +127,11 @@ class AddEditNoteViewModel(
                 result.fold(
                     onSuccess = { note ->
                         state.copy(
-                            dateTime = note.dateTime.toString(),
-                            location = note.location,
-                            target = note.target,
-                            text = note.text,
+                            date = note.date?.toString().orEmpty(),
+                            time = note.time?.toString().orEmpty(),
+                            location = note.location.orEmpty(),
+                            target = note.target.orEmpty(),
+                            text = note.text.orEmpty(),
                             isLoading = false,
                             errorMessage = null,
                         )
@@ -136,15 +144,48 @@ class AddEditNoteViewModel(
         }
     }
 
-    private fun parseDateTime(value: String): Instant? {
-        return runCatching { Instant.parse(value.trim()) }
-            .getOrElse {
-                _uiState.update { state ->
-                    state.copy(
-                        errorMessage = "Введите дату в ISO-8601 формате, например 2026-05-28T12:00:00Z",
-                    )
-                }
+    private fun parseDateAndTime(date: String, time: String): Result<NoteDateTime> {
+        return try {
+            val normalizedDate = date.trim()
+            val normalizedTime = time.trim()
+            val parsedDate = if (normalizedDate.isBlank()) {
                 null
+            } else {
+                require(DATE_REGEX.matches(normalizedDate))
+                LocalDate.parse(normalizedDate)
             }
+            val parsedTime = if (normalizedTime.isBlank()) {
+                null
+            } else {
+                require(TIME_REGEX.matches(normalizedTime))
+                LocalTime.parse(normalizedTime)
+            }
+            Result.success(NoteDateTime(date = parsedDate, time = parsedTime))
+        } catch (exception: IllegalArgumentException) {
+            _uiState.update { state ->
+                state.copy(
+                    errorMessage = "Введите дату в формате ГГГГ-ММ-ДД и время в формате ЧЧ:ММ",
+                )
+            }
+            Result.failure(exception)
+        }
+    }
+
+    private companion object {
+        val DATE_REGEX = Regex("\\d{4}-\\d{2}-\\d{2}")
+        val TIME_REGEX = Regex("\\d{2}:\\d{2}")
+
+        fun currentDateText(): String {
+            return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        }
+
+        fun currentTimeText(): String {
+            return SimpleDateFormat("HH:mm", Locale.US).format(Date())
+        }
     }
 }
+
+private data class NoteDateTime(
+    val date: LocalDate?,
+    val time: LocalTime?,
+)

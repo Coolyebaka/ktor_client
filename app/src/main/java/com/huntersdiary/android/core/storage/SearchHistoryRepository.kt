@@ -7,5 +7,7 @@ interface SearchHistoryRepository {
 
     suspend fun addHistoryItem(scope: SearchHistoryScope, query: String)
 
+    suspend fun removeHistoryItem(scope: SearchHistoryScope, query: String)
+
     suspend fun clearHistory(scope: SearchHistoryScope)
 }

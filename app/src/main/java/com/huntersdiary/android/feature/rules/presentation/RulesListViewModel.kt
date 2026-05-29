@@ -25,6 +25,9 @@ class RulesListViewModel(
 
     fun onQueryChange(query: String) {
         _uiState.update { state -> state.copy(query = query) }
+        if (query.isBlank() && uiState.value.lastQuery?.isNotBlank() == true) {
+            loadRules(query = "")
+        }
     }
 
     fun search() {
@@ -47,12 +50,18 @@ class RulesListViewModel(
         }
     }
 
+    fun removeHistoryItem(query: String) {
+        viewModelScope.launch {
+            searchHistoryRepository.removeHistoryItem(SearchHistoryScope.Rules, query)
+        }
+    }
+
     fun retry() {
         loadRules(query = uiState.value.lastQuery ?: uiState.value.query)
     }
 
     fun refreshCurrent() {
-        loadRules(query = uiState.value.lastQuery ?: uiState.value.query)
+        loadRules(query = uiState.value.query, refresh = true)
     }
 
     fun onSearchResultClick() {
@@ -64,10 +73,15 @@ class RulesListViewModel(
         }
     }
 
-    private fun loadRules(query: String = uiState.value.query) {
+    private fun loadRules(query: String = uiState.value.query, refresh: Boolean = false) {
         viewModelScope.launch {
             _uiState.update { state ->
-                state.copy(isLoading = true, errorMessage = null, lastQuery = query)
+                state.copy(
+                    isLoading = !refresh,
+                    isRefreshing = refresh,
+                    errorMessage = null,
+                    lastQuery = query,
+                )
             }
 
             val result = getRulesUseCase(query)
@@ -75,10 +89,19 @@ class RulesListViewModel(
             _uiState.update { state ->
                 result.fold(
                     onSuccess = { rules ->
-                        state.copy(rules = rules, isLoading = false, errorMessage = null)
+                        state.copy(
+                            rules = rules,
+                            isLoading = false,
+                            isRefreshing = false,
+                            errorMessage = null,
+                        )
                     },
                     onFailure = { error ->
-                        state.copy(isLoading = false, errorMessage = error.message)
+                        state.copy(
+                            isLoading = false,
+                            isRefreshing = false,
+                            errorMessage = error.message,
+                        )
                     },
                 )
             }
