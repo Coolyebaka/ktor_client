@@ -143,21 +143,8 @@ Search is simple text matching by `location`, `target`, `text`, `date`, and `tim
 
 ## Rules
 
-Rules are a read-only справочник.
+Rules are a read-only book.
 
 - `GET /rules?query=` lists and searches rules.
 - `GET /rules/{id}` opens a rule.
-- There is no admin panel and no client-side write API for rules.
 
-The backend seeds 7 demo rules when the Firestore `rules` collection is empty.
-
-## Current Limits
-
-- No refresh token.
-- No email confirmation.
-- No password recovery.
-- No roles or admin endpoints.
-- No image upload.
-- No maps.
-- No complex date filtering.
-- Firestore credentials stay on the backend only.
